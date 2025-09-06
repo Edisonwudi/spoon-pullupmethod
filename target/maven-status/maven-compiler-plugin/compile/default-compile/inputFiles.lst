@@ -1,0 +1,17 @@
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\adjuster\ReturnTypeAdjuster.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\cli\PullUpMethodCLI.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\CodeGenerator.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\RefactoringException.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\analyzer\DependencyAnalyzer.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\RefactoringResult.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ClassFinder.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\PullUpMethodRefactoring.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\handler\FieldPullUpHandler.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\handler\VisibilityHandler.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\handler\SuperCallHandler.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\checker\MethodConflictChecker.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\handler\MethodPullUpHandler.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\adjuster\VisibilityAdjuster.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\RefactoringOrchestrator.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ModelBuilder.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ImportManager.java
