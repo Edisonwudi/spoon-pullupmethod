@@ -7,6 +7,7 @@ import com.example.refactoring.adjuster.ReturnTypeAdjuster;
 import com.example.refactoring.handler.FieldPullUpHandler;
 import com.example.refactoring.handler.MethodPullUpHandler;
 import com.example.refactoring.handler.VisibilityHandler;
+import com.example.refactoring.handler.ThisCastFixHandler;
 
 import spoon.reflect.CtModel;
 import spoon.reflect.declaration.CtClass;
@@ -32,6 +33,7 @@ public class RefactoringOrchestrator {
     private final CodeGenerator codeGenerator;
     private final ImportManager importManager;
     private final SnapshotManager snapshotManager;
+    private final PomDependencyManager pomDependencyManager;
     
     private final DependencyAnalyzer dependencyAnalyzer;
     private final MethodConflictChecker conflictChecker;
@@ -40,6 +42,7 @@ public class RefactoringOrchestrator {
     private final FieldPullUpHandler fieldPullUpHandler;
     private final MethodPullUpHandler methodPullUpHandler;
     private final VisibilityHandler visibilityHandler;
+    private final ThisCastFixHandler thisCastFixHandler;
     
     public RefactoringOrchestrator() {
         this.modelBuilder = new ModelBuilder();
@@ -47,6 +50,7 @@ public class RefactoringOrchestrator {
         this.codeGenerator = new CodeGenerator();
         this.importManager = new ImportManager();
         this.snapshotManager = new SnapshotManager();
+        this.pomDependencyManager = new PomDependencyManager();
         
         this.dependencyAnalyzer = new DependencyAnalyzer();
         this.conflictChecker = new MethodConflictChecker();
@@ -55,6 +59,7 @@ public class RefactoringOrchestrator {
         this.fieldPullUpHandler = new FieldPullUpHandler();
         this.methodPullUpHandler = new MethodPullUpHandler();
         this.visibilityHandler = new VisibilityHandler();
+        this.thisCastFixHandler = new ThisCastFixHandler();
     }
     
     /**
@@ -156,6 +161,20 @@ public class RefactoringOrchestrator {
             List<String> modifiedFiles = codeGenerator.writeModifiedClassesOnly(
                 childClass, targetAncestorClass, outputPath, sourcePaths, classFinder);
             
+            // 7.5 自动修复跨模块依赖（仅在覆盖原文件时执行，避免输出目录被污染）
+            if (outputPath == null && !modifiedFiles.isEmpty()) {
+                pomDependencyManager.fixMissingModuleDependencies(modifiedFiles, sourcePaths);
+            }
+
+            // 7.6 清理无效的 @Override（父类为 Object 的类）
+            try {
+                visibilityHandler.cleanInvalidOverrides(targetAncestorClass);
+                // 目标祖先类发生变化，需要再次写入
+                codeGenerator.writeModifiedClassesOnly(childClass, targetAncestorClass, outputPath, sourcePaths, classFinder);
+            } catch (Exception e) {
+                logger.debug("清理 @Override 注解时发生异常: {}", e.getMessage());
+            }
+
             logger.info("Pull-Up-Method重构完成，修改了 {} 个文件", modifiedFiles.size());
             
             // 构建详细的成功消息
@@ -251,6 +270,9 @@ public class RefactoringOrchestrator {
             if (returnTypeResult.wasAdjusted()) {
                 logger.info("方法返回类型已调整: {}", returnTypeResult.getMessage());
             }
+
+            // 3.1 修复迁移后方法体内的 this 在类型期望不匹配处的用法
+            thisCastFixHandler.fixThisCastsForPulledUpMethod(clonedMethod, childClass, parentClass);
             
             // 4. 处理依赖字段的自动上提
             FieldPullUpHandler.FieldPullUpResult fieldResult = 
@@ -259,12 +281,12 @@ public class RefactoringOrchestrator {
             // 5. 收集目标类的所有后代类（用于可见性调整）
             List<CtClass<?>> allDescendantClasses = classFinder.collectAllDescendantClasses(parentClass);
             
-            // 6. 收集目标类的直接子类（用于依赖方法处理）
-            List<CtClass<?>> directChildClasses = classFinder.collectAllChildClasses(parentClass);
+            // 6. 使用所有后代类（直接子类与孙子类等）用于依赖方法处理与补全
+            List<CtClass<?>> allChildrenAndDescendants = allDescendantClasses;
             
             // 7. 处理依赖方法的自动上提
             MethodPullUpHandler.MethodPullUpResult methodResult = 
-                methodPullUpHandler.pullUpDependentMethods(clonedMethod, childClass, parentClass, directChildClasses);
+                methodPullUpHandler.pullUpDependentMethods(clonedMethod, childClass, parentClass, allChildrenAndDescendants);
             
             // 8. 将方法添加到父类
             parentClass.addMethod(clonedMethod);
@@ -291,6 +313,12 @@ public class RefactoringOrchestrator {
             return RefactoringResult.failure("方法迁移失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 修复：当方法被上提到目标祖先类后，方法体内的 this 在某些调用上下文中不再满足期望类型。
+     * 策略：若调用实参为 this，且对应参数类型不兼容祖先类型但兼容原后代类型，则将实参替换为 (ChildClass) this。
+     */
+    // this-cast 修复逻辑已提取到 ThisCastFixHandler
     
     /**
      * 调整所有后代类中同名方法的可见性

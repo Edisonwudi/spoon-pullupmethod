@@ -1,6 +1,9 @@
 C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\AncestorPullUpTest.java
-C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\PullUpMethodRefactoringTest.java
+C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\MissingChildStubGenerationTest.java
 C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\SuperCallHandlingTest.java
+C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\MethodAndFieldTypeAdjustmentTest.java
+C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\ThisCastFixTest.java
+C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\PullUpMethodRefactoringTest.java
 C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\DescendantVisibilityFixTest.java
 C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\ReturnTypeAdjustmentTest.java
 C:\Users\wudi\Desktop\spoon\src\test\java\com\example\refactoring\FieldPullUpTest.java

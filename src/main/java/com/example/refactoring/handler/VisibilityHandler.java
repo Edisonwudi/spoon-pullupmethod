@@ -261,4 +261,45 @@ public class VisibilityHandler {
             logger.warn("添加@Override注解失败: {}", e.getMessage());
         }
     }
+
+    /**
+     * 当类的直接父类为 Object 时，移除类中所有方法上的 @Override 注解。
+     */
+    public void cleanInvalidOverrides(CtClass<?> clazz) {
+        try {
+            if (clazz == null) return;
+            spoon.reflect.reference.CtTypeReference<?> superRef = null;
+            try {
+                superRef = clazz.getSuperclass();
+            } catch (Exception ignore) {}
+
+            boolean isObjectRoot = superRef == null
+                || superRef.getQualifiedName() == null
+                || "java.lang.Object".equals(superRef.getQualifiedName());
+
+            if (!isObjectRoot) return;
+
+            for (CtMethod<?> method : clazz.getMethods()) {
+                removeOverrideIfPresent(method);
+            }
+            logger.debug("已清理类 {} 中的 @Override 注解（父类为 Object）", clazz.getQualifiedName());
+        } catch (Exception e) {
+            logger.debug("清理 @Override 注解失败: {}", e.getMessage());
+        }
+    }
+
+    private void removeOverrideIfPresent(CtMethod<?> method) {
+        try {
+            java.util.List<CtAnnotation<?>> annotations = new java.util.ArrayList<>(method.getAnnotations());
+            java.util.Iterator<CtAnnotation<?>> it = annotations.iterator();
+            while (it.hasNext()) {
+                CtAnnotation<?> ann = it.next();
+                if (ann.getAnnotationType() != null &&
+                    "Override".equals(ann.getAnnotationType().getSimpleName())) {
+                    method.removeAnnotation(ann);
+                    break;
+                }
+            }
+        } catch (Exception ignore) {}
+    }
 }

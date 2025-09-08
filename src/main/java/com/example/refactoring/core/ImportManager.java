@@ -209,6 +209,9 @@ public class ImportManager {
         
         // 排除 java.lang
         if (qname.startsWith("java.lang.")) return false;
+
+        // 排除无包名的简单名（如 Override 等注解/类型），避免生成形如 "import Override;"
+        if (!qname.contains(".")) return false;
         
         // 排除同包类型
         String refPkg = ref.getPackage() != null ? ref.getPackage().getQualifiedName() : "";

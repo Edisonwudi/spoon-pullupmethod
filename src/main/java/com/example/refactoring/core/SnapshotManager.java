@@ -25,7 +25,8 @@ public class SnapshotManager {
     private static final Logger logger = LoggerFactory.getLogger(SnapshotManager.class);
 
     private static final String SNAPSHOT_DIR_NAME = ".refactor-snapshot";
-    private static final String META_FILE_NAME = "meta.txt"; // 记录时间和文件列表
+    private static final String META_FILE_NAME = "meta.txt"; // 记录时间和文件列表（保存原始相对路径）
+    private static final String SNAPSHOT_SUFFIX = ".snap"; // 快照文件扩展名，避免被模型识别为 .java
 
     /**
      * 根据任意一个源码路径推断项目根目录（取其最近的父目录作为根）。
@@ -97,13 +98,38 @@ public class SnapshotManager {
             metaContent.append("count=").append(filesAboutToChange.size()).append('\n');
 
             Set<String> written = new HashSet<>();
+            // 扩展：将涉及到的模块 pom.xml 以及顶层聚合 pom.xml 一并纳入快照
+            java.util.List<String> expanded = new java.util.ArrayList<>(filesAboutToChange);
             for (String filePath : filesAboutToChange) {
+                if (filePath == null) continue;
+                File src = new File(filePath);
+                File modulePom = findNearestPom(src);
+                if (modulePom != null && modulePom.exists()) {
+                    String pomPath = modulePom.getAbsolutePath();
+                    if (!expanded.contains(pomPath)) {
+                        expanded.add(pomPath);
+                    }
+                    // 同时尝试加入聚合根 pom（模块之上的最近 pom）
+                    File agg = modulePom.getParentFile() != null ? modulePom.getParentFile().getParentFile() : null;
+                    while (agg != null) {
+                        File aggPom = new File(agg, "pom.xml");
+                        if (aggPom.exists() && aggPom.isFile()) {
+                            String ap = aggPom.getAbsolutePath();
+                            if (!expanded.contains(ap)) expanded.add(ap);
+                            break;
+                        }
+                        agg = agg.getParentFile();
+                    }
+                }
+            }
+
+            for (String filePath : expanded) {
                 if (filePath == null) continue;
                 File src = new File(filePath);
                 if (!src.exists() || !src.isFile()) continue;
 
                 String rel = toRelativePathWithinProject(src, projectRoot);
-                File dst = new File(snapshotDir, rel);
+                File dst = new File(snapshotDir, rel + SNAPSHOT_SUFFIX);
                 if (!dst.getParentFile().exists()) dst.getParentFile().mkdirs();
                 copyFile(src, dst);
                 metaContent.append(rel).append('\n');
@@ -146,7 +172,7 @@ public class SnapshotManager {
             for (int i = startIdx; i < lines.size(); i++) {
                 String rel = lines.get(i).trim();
                 if (rel.isEmpty()) continue;
-                File src = new File(snapshotDir, rel);
+                File src = new File(snapshotDir, rel + SNAPSHOT_SUFFIX);
                 File dst = new File(projectRoot, rel);
                 if (!dst.getParentFile().exists()) dst.getParentFile().mkdirs();
                 if (src.exists()) {
@@ -191,6 +217,21 @@ public class SnapshotManager {
             }
         }
         try { Files.deleteIfExists(dir.toPath()); } catch (IOException ignored) {}
+    }
+
+    /**
+     * 向上查找最近的 pom.xml 文件
+     */
+    private File findNearestPom(File start) {
+        try {
+            File dir = start.isDirectory() ? start : start.getParentFile();
+            while (dir != null) {
+                File pom = new File(dir, "pom.xml");
+                if (pom.exists() && pom.isFile()) return pom;
+                dir = dir.getParentFile();
+            }
+        } catch (Exception ignore) {}
+        return null;
     }
 }
 
