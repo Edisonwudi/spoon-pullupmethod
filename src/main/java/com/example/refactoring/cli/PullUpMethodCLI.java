@@ -44,10 +44,11 @@ public class PullUpMethodCLI {
                 return;
             }
             
-            // 验证必需参数（对于列表操作，不需要所有参数）
+            // 验证必需参数（对于列表操作或恢复操作，不需要所有参数）
             boolean listClasses = cmd.hasOption("list-classes");
             boolean listMethods = cmd.hasOption("list-methods");
             boolean listAncestors = cmd.hasOption("list-ancestors");
+            boolean restore = cmd.hasOption("restore");
             
             if (!cmd.hasOption("source")) {
                 System.err.println("错误: 缺少必需的参数 --source");
@@ -55,7 +56,7 @@ public class PullUpMethodCLI {
                 System.exit(1);
             }
             
-            if (!listClasses && !listMethods && !listAncestors && (!cmd.hasOption("class") || !cmd.hasOption("method"))) {
+            if (!listClasses && !listMethods && !listAncestors && !restore && (!cmd.hasOption("class") || !cmd.hasOption("method"))) {
                 System.err.println("错误: 缺少必需的参数 --class 和 --method");
                 printHelp(options);
                 System.exit(1);
@@ -95,6 +96,18 @@ public class PullUpMethodCLI {
             if (listAncestors) {
                 listAncestors(refactoring, sourcePaths, className);
                 return;
+            }
+
+            // 处理恢复选项
+            if (restore) {
+                boolean ok = refactoring.restoreSnapshot(sourcePaths);
+                if (ok) {
+                    System.out.println("✓ 已从快照恢复变更文件");
+                    return;
+                } else {
+                    System.err.println("✗ 未找到可恢复的快照或恢复失败");
+                    System.exit(1);
+                }
             }
             
             // 执行重构
@@ -173,6 +186,11 @@ public class PullUpMethodCLI {
         options.addOption(Option.builder()
             .longOpt("list-ancestors")
             .desc("列出指定类的所有祖先类（需要配合 --class 使用）")
+            .build());
+
+        options.addOption(Option.builder("r")
+            .longOpt("restore")
+            .desc("从项目根目录的 .refactor-snapshot 快照恢复上一次重构修改")
             .build());
         
         // 帮助和版本
@@ -365,6 +383,9 @@ public class PullUpMethodCLI {
         System.out.println();
         System.out.println("  # 输出到指定目录");
         System.out.println("  java -jar tool.jar -s src/main/java -c com.example.Child -m methodToMove -o output/");
+        System.out.println();
+        System.out.println("  # 从最新快照恢复");
+        System.out.println("  java -jar tool.jar -s src/main/java --restore");
     }
     
     /**

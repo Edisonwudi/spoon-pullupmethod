@@ -15,4 +15,5 @@ C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\handler\Method
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\adjuster\VisibilityAdjuster.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\RefactoringOrchestrator.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ModelBuilder.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\SnapshotManager.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ImportManager.java

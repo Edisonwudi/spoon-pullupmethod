@@ -76,4 +76,11 @@ public class PullUpMethodRefactoring {
     public List<String> getAncestorClassNames(List<String> sourcePaths, String className) {
         return orchestrator.getAncestorClassNames(sourcePaths, className);
     }
+
+    /**
+     * 从快照恢复上一次重构修改的文件（CLI 使用）。
+     */
+    public boolean restoreSnapshot(List<String> sourcePaths) {
+        return orchestrator.restoreSnapshot(sourcePaths);
+    }
 }

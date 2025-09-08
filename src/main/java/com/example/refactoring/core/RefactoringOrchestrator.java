@@ -31,6 +31,7 @@ public class RefactoringOrchestrator {
     private final ClassFinder classFinder;
     private final CodeGenerator codeGenerator;
     private final ImportManager importManager;
+    private final SnapshotManager snapshotManager;
     
     private final DependencyAnalyzer dependencyAnalyzer;
     private final MethodConflictChecker conflictChecker;
@@ -45,6 +46,7 @@ public class RefactoringOrchestrator {
         this.classFinder = new ClassFinder();
         this.codeGenerator = new CodeGenerator();
         this.importManager = new ImportManager();
+        this.snapshotManager = new SnapshotManager();
         
         this.dependencyAnalyzer = new DependencyAnalyzer();
         this.conflictChecker = new MethodConflictChecker();
@@ -143,7 +145,14 @@ public class RefactoringOrchestrator {
                 return migrationResult;
             }
             
-            // 6. 输出结果
+            // 6. 在写入前保存快照（仅当覆盖原文件时生效）
+            if (outputPath == null) {
+                List<String> originals = codeGenerator.getOriginalFilePathsForModifiedClasses(
+                    childClass, targetAncestorClass, classFinder);
+                snapshotManager.saveSnapshot(originals, sourcePaths);
+            }
+
+            // 7. 输出结果
             List<String> modifiedFiles = codeGenerator.writeModifiedClassesOnly(
                 childClass, targetAncestorClass, outputPath, sourcePaths, classFinder);
             
@@ -160,6 +169,18 @@ public class RefactoringOrchestrator {
         } catch (Exception e) {
             logger.error("重构过程中发生异常", e);
             return RefactoringResult.failure("重构失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 从快照恢复上一次重构修改的文件。
+     */
+    public boolean restoreSnapshot(List<String> sourcePaths) {
+        try {
+            return snapshotManager.restoreSnapshot(sourcePaths);
+        } catch (Exception e) {
+            logger.error("恢复快照时发生异常", e);
+            return false;
         }
     }
     

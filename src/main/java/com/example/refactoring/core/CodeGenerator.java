@@ -154,6 +154,26 @@ public class CodeGenerator {
         
         return modifiedClasses;
     }
+
+    /**
+     * 提供给外部使用：获取将被写入的原始文件的绝对路径列表（基于被修改的类集合）。
+     */
+    public List<String> getOriginalFilePathsForModifiedClasses(CtClass<?> childClass,
+                                                               CtClass<?> parentClass,
+                                                               ClassFinder classFinder) {
+        List<String> files = new ArrayList<>();
+        try {
+            Set<CtClass<?>> modified = collectModifiedClasses(childClass, parentClass, classFinder);
+            for (CtClass<?> clazz : modified) {
+                if (clazz.getPosition() != null && clazz.getPosition().getFile() != null) {
+                    files.add(clazz.getPosition().getFile().getAbsolutePath());
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("收集原始文件路径失败: {}", e.getMessage());
+        }
+        return files;
+    }
     
     /**
      * 检查类是否有方法修改（@Override注解或可见性调整）
