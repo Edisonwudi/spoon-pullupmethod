@@ -90,13 +90,76 @@ public class ClassFinder {
                 CtClass<?> clazz = (CtClass<?>) type;
                 if (isDirectSubclass(clazz, parentClass)) {
                     childClasses.add(clazz);
-                    logger.debug("发现子类: {}", clazz.getQualifiedName());
+                    logger.debug("发现直接子类: {}", clazz.getQualifiedName());
                 }
             }
         }
         
-        logger.info("收集到 {} 个子类", childClasses.size());
+        logger.info("收集到 {} 个直接子类", childClasses.size());
         return childClasses;
+    }
+    
+    /**
+     * 收集父类的所有后代类（包括直接和间接子类）
+     * 
+     * @param ancestorClass 祖先类
+     * @return 所有后代类的列表
+     */
+    public List<CtClass<?>> collectAllDescendantClasses(CtClass<?> ancestorClass) {
+        List<CtClass<?>> descendants = new ArrayList<>();
+        
+        // 遍历模型中的所有类，查找所有继承自ancestorClass的类
+        spoon.reflect.CtModel model = ancestorClass.getFactory().getModel();
+        for (CtType<?> type : model.getAllTypes()) {
+            if (type instanceof CtClass) {
+                CtClass<?> clazz = (CtClass<?>) type;
+                if (isDescendantClass(clazz, ancestorClass)) {
+                    descendants.add(clazz);
+                    logger.debug("发现后代类: {}", clazz.getQualifiedName());
+                }
+            }
+        }
+        
+        logger.info("收集到 {} 个后代类", descendants.size());
+        return descendants;
+    }
+    
+    /**
+     * 检查一个类是否是另一个类的后代类（包括直接和间接子类）
+     * 
+     * @param potentialDescendant 潜在的后代类
+     * @param ancestorClass 祖先类
+     * @return 如果是后代类返回true
+     */
+    public boolean isDescendantClass(CtClass<?> potentialDescendant, CtClass<?> ancestorClass) {
+        if (potentialDescendant.equals(ancestorClass)) {
+            return false; // 自身不算后代类
+        }
+        
+        try {
+            CtClass<?> currentClass = potentialDescendant;
+            while (currentClass != null) {
+                CtTypeReference<?> superClassRef = currentClass.getSuperclass();
+                if (superClassRef == null) {
+                    break;
+                }
+                
+                CtType<?> superType = superClassRef.getTypeDeclaration();
+                if (superType instanceof CtClass) {
+                    CtClass<?> superClass = (CtClass<?>) superType;
+                    if (superClass.getQualifiedName().equals(ancestorClass.getQualifiedName())) {
+                        return true;
+                    }
+                    currentClass = superClass;
+                } else {
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("检查后代关系时发生异常: {}", e.getMessage());
+        }
+        
+        return false;
     }
     
     /**
@@ -159,6 +222,73 @@ public class ClassFinder {
         return methodNames;
     }
     
+    /**
+     * 获取类的所有祖先类（不包括Object类）
+     * 
+     * @param childClass 子类
+     * @return 祖先类列表，从直接父类到最顶层祖先类的顺序
+     */
+    public List<CtClass<?>> getAllAncestorClasses(CtClass<?> childClass) {
+        List<CtClass<?>> ancestors = new ArrayList<>();
+        CtClass<?> currentClass = childClass;
+        
+        while (currentClass != null) {
+            CtClass<?> parentClass = getParentClass(currentClass);
+            if (parentClass != null && 
+                !parentClass.getQualifiedName().equals("java.lang.Object")) {
+                ancestors.add(parentClass);
+                currentClass = parentClass;
+            } else {
+                break;
+            }
+        }
+        
+        logger.debug("找到 {} 个祖先类", ancestors.size());
+        return ancestors;
+    }
+    
+    /**
+     * 检查一个类是否是另一个类的祖先类
+     * 
+     * @param potentialAncestor 潜在的祖先类
+     * @param descendantClass 后代类
+     * @return 如果是祖先类返回true
+     */
+    public boolean isAncestorClass(CtClass<?> potentialAncestor, CtClass<?> descendantClass) {
+        List<CtClass<?>> ancestors = getAllAncestorClasses(descendantClass);
+        return ancestors.stream()
+            .anyMatch(ancestor -> ancestor.getQualifiedName().equals(potentialAncestor.getQualifiedName()));
+    }
+    
+    /**
+     * 获取从子类到指定祖先类的继承路径
+     * 
+     * @param childClass 子类
+     * @param targetAncestor 目标祖先类
+     * @return 继承路径，如果不是祖先关系返回空列表
+     */
+    public List<CtClass<?>> getInheritancePath(CtClass<?> childClass, CtClass<?> targetAncestor) {
+        List<CtClass<?>> path = new ArrayList<>();
+        CtClass<?> currentClass = childClass;
+        
+        while (currentClass != null) {
+            if (currentClass.getQualifiedName().equals(targetAncestor.getQualifiedName())) {
+                return path; // 找到目标祖先类
+            }
+            
+            CtClass<?> parentClass = getParentClass(currentClass);
+            if (parentClass != null && 
+                !parentClass.getQualifiedName().equals("java.lang.Object")) {
+                path.add(parentClass);
+                currentClass = parentClass;
+            } else {
+                break;
+            }
+        }
+        
+        return new ArrayList<>(); // 未找到继承关系
+    }
+
     /**
      * 获取模型中所有类的名称
      * 

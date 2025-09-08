@@ -117,7 +117,6 @@ public class CodeGenerator {
                     String result = sniperPrinter.getResult();
                     
                     // 修复Spoon PrettyPrinter的问题
-                    result = fixMissingThisReferences(result);
                     result = fixOverrideAnnotationFormatting(result);
                     
                     return result;
@@ -141,14 +140,14 @@ public class CodeGenerator {
         modifiedClasses.add(childClass);
         modifiedClasses.add(parentClass);
         
-        // 添加所有被可见性调整影响的子类
-        List<CtClass<?>> allChildClasses = classFinder.collectAllChildClasses(parentClass);
-        for (CtClass<?> otherChildClass : allChildClasses) {
-            if (!otherChildClass.equals(childClass)) {
+        // 添加所有被可见性调整影响的后代类（包括间接子类）
+        List<CtClass<?>> allDescendantClasses = classFinder.collectAllDescendantClasses(parentClass);
+        for (CtClass<?> descendantClass : allDescendantClasses) {
+            if (!descendantClass.equals(childClass)) {
                 // 检查是否有方法被修改（添加了@Override注解或调整了可见性）
-                if (hasMethodModifications(otherChildClass)) {
-                    modifiedClasses.add(otherChildClass);
-                    logger.info("检测到子类 {} 有方法修改，将包含在输出中", otherChildClass.getSimpleName());
+                if (hasMethodModifications(descendantClass)) {
+                    modifiedClasses.add(descendantClass);
+                    logger.info("检测到后代类 {} 有方法修改，将包含在输出中", descendantClass.getSimpleName());
                 }
             }
         }
@@ -260,35 +259,6 @@ public class CodeGenerator {
         }
     }
     
-    /**
-     * 修复Spoon PrettyPrinter生成的缺失this引用问题
-     */
-    private String fixMissingThisReferences(String code) {
-        if (code == null || code.isEmpty()) {
-            return code;
-        }
-        
-        try {
-            // 修复各种this引用问题
-            code = code.replaceAll("(?m)^(\\s*)\\.(\\w+)", "$1this.$2");
-            code = code.replaceAll("(\\()\\.(\\w+)(?!\\s*\\)|\\w)", "$1this.$2");
-            code = code.replaceAll("(;\\s*)\\.(\\w+)", "$1this.$2");
-            code = code.replaceAll("(,\\s*)\\.(\\w+)", "$1this.$2");
-            code = code.replaceAll("([=]\\s*)\\.(\\w+)", "$1this.$2");
-            code = code.replaceAll("([&|]\\s*)\\.(\\w+)", "$1this.$2");
-            code = code.replaceAll("(\\b(?:if|while|for)\\s*\\()\\.(\\w+)", "$1this.$2");
-            
-            // 修复错误的连接
-            code = code.replaceAll("([\"'])this\\.([\\w])", "$1.$2");
-            code = code.replaceAll("(\\)\\s*)this\\.([a-zA-Z_][a-zA-Z0-9_]*\\s*\\()", "$1.$2");
-            
-            logger.debug("已修复代码中的缺失this引用");
-            return code;
-        } catch (Exception e) {
-            logger.warn("修复this引用时发生异常: {}", e.getMessage());
-            return code;
-        }
-    }
     
     /**
      * 修复@Override注解粘黏问题

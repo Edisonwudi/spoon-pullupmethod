@@ -47,6 +47,7 @@ public class PullUpMethodCLI {
             // 验证必需参数（对于列表操作，不需要所有参数）
             boolean listClasses = cmd.hasOption("list-classes");
             boolean listMethods = cmd.hasOption("list-methods");
+            boolean listAncestors = cmd.hasOption("list-ancestors");
             
             if (!cmd.hasOption("source")) {
                 System.err.println("错误: 缺少必需的参数 --source");
@@ -54,7 +55,7 @@ public class PullUpMethodCLI {
                 System.exit(1);
             }
             
-            if (!listClasses && !listMethods && (!cmd.hasOption("class") || !cmd.hasOption("method"))) {
+            if (!listClasses && !listMethods && !listAncestors && (!cmd.hasOption("class") || !cmd.hasOption("method"))) {
                 System.err.println("错误: 缺少必需的参数 --class 和 --method");
                 printHelp(options);
                 System.exit(1);
@@ -64,6 +65,7 @@ public class PullUpMethodCLI {
             List<String> sourcePaths = parseSourcePaths(cmd.getOptionValue("source"));
             String className = cmd.getOptionValue("class");
             String methodName = cmd.getOptionValue("method");
+            String targetAncestorClassName = cmd.getOptionValue("target");
             String outputPath = cmd.getOptionValue("output");
             boolean verbose = cmd.hasOption("verbose");
             
@@ -90,8 +92,13 @@ public class PullUpMethodCLI {
                 return;
             }
             
+            if (listAncestors) {
+                listAncestors(refactoring, sourcePaths, className);
+                return;
+            }
+            
             // 执行重构
-            executeRefactoring(refactoring, sourcePaths, className, methodName, outputPath);
+            executeRefactoring(refactoring, sourcePaths, className, methodName, targetAncestorClassName, outputPath);
             
         } catch (ParseException e) {
             System.err.println("参数解析错误: " + e.getMessage());
@@ -133,6 +140,13 @@ public class PullUpMethodCLI {
             .build());
         
         // 可选选项
+        options.addOption(Option.builder("t")
+            .longOpt("target")
+            .hasArg()
+            .argName("ancestorClassName")
+            .desc("目标祖先类名称（默认为直接父类）")
+            .build());
+        
         options.addOption(Option.builder("o")
             .longOpt("output")
             .hasArg()
@@ -154,6 +168,11 @@ public class PullUpMethodCLI {
         options.addOption(Option.builder()
             .longOpt("list-methods")
             .desc("列出指定类的所有方法（需要配合 --class 使用）")
+            .build());
+        
+        options.addOption(Option.builder()
+            .longOpt("list-ancestors")
+            .desc("列出指定类的所有祖先类（需要配合 --class 使用）")
             .build());
         
         // 帮助和版本
@@ -242,23 +261,57 @@ public class PullUpMethodCLI {
     }
     
     /**
+     * 列出指定类的祖先类
+     */
+    private void listAncestors(PullUpMethodRefactoring refactoring, List<String> sourcePaths, String className) {
+        if (className == null || className.trim().isEmpty()) {
+            System.err.println("错误: 使用 --list-ancestors 时必须指定 --class 参数");
+            return;
+        }
+        
+        System.out.println("正在扫描类 " + className + " 的祖先类...");
+        List<String> ancestorNames = refactoring.getAncestorClassNames(sourcePaths, className);
+        
+        if (ancestorNames.isEmpty()) {
+            System.out.println("类 " + className + " 没有可用的祖先类（除了Object）");
+        } else {
+            System.out.println("类 " + className + " 的祖先类（从直接父类到最顶层）:");
+            for (int i = 0; i < ancestorNames.size(); i++) {
+                String prefix = i == 0 ? "  直接父类: " : "  祖先类 " + (i + 1) + ": ";
+                System.out.println(prefix + ancestorNames.get(i));
+            }
+        }
+    }
+    
+    /**
      * 执行重构
      */
     private void executeRefactoring(PullUpMethodRefactoring refactoring, 
                                   List<String> sourcePaths, 
                                   String className, 
-                                  String methodName, 
+                                  String methodName,
+                                  String targetAncestorClassName,
                                   String outputPath) {
         System.out.println("开始执行 Pull-Up-Method 重构...");
         System.out.println("  源码路径: " + sourcePaths);
         System.out.println("  目标类: " + className);
         System.out.println("  目标方法: " + methodName);
+        if (targetAncestorClassName != null) {
+            System.out.println("  目标祖先类: " + targetAncestorClassName);
+        } else {
+            System.out.println("  目标祖先类: 直接父类（默认）");
+        }
         if (outputPath != null) {
             System.out.println("  输出路径: " + outputPath);
         }
         System.out.println();
         
-        RefactoringResult result = refactoring.pullUpMethod(sourcePaths, className, methodName, outputPath);
+        RefactoringResult result;
+        if (targetAncestorClassName != null) {
+            result = refactoring.pullUpMethodToAncestor(sourcePaths, className, methodName, targetAncestorClassName, outputPath);
+        } else {
+            result = refactoring.pullUpMethod(sourcePaths, className, methodName, outputPath);
+        }
         
         if (result.isSuccess()) {
             System.out.println("✓ 重构成功!");
@@ -295,14 +348,20 @@ public class PullUpMethodCLI {
         
         System.out.println();
         System.out.println("示例:");
-        System.out.println("  # 执行重构");
+        System.out.println("  # 执行重构到直接父类");
         System.out.println("  java -jar tool.jar -s src/main/java -c com.example.Child -m methodToMove");
+        System.out.println();
+        System.out.println("  # 执行重构到指定祖先类");
+        System.out.println("  java -jar tool.jar -s src/main/java -c com.example.Child -m methodToMove -t com.example.GrandParent");
         System.out.println();
         System.out.println("  # 列出所有类");
         System.out.println("  java -jar tool.jar -s src/main/java --list-classes");
         System.out.println();
         System.out.println("  # 列出类的所有方法");
         System.out.println("  java -jar tool.jar -s src/main/java -c com.example.Child --list-methods");
+        System.out.println();
+        System.out.println("  # 列出类的祖先类");
+        System.out.println("  java -jar tool.jar -s src/main/java -c com.example.Child --list-ancestors");
         System.out.println();
         System.out.println("  # 输出到指定目录");
         System.out.println("  java -jar tool.jar -s src/main/java -c com.example.Child -m methodToMove -o output/");

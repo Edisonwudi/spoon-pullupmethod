@@ -4,6 +4,7 @@ C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\CodeGener
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\RefactoringException.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\analyzer\DependencyAnalyzer.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\RefactoringResult.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\demo\AncestorPullUpDemo.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ClassFinder.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\PullUpMethodRefactoring.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\handler\FieldPullUpHandler.java

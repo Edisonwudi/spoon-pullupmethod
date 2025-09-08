@@ -23,7 +23,7 @@ public class PullUpMethodRefactoring {
     }
     
     /**
-     * 执行Pull-Up-Method重构
+     * 执行Pull-Up-Method重构（默认上提到直接父类）
      * 
      * @param sourcePaths 源代码路径列表
      * @param childClassName 子类名称
@@ -39,6 +39,24 @@ public class PullUpMethodRefactoring {
     }
     
     /**
+     * 执行Pull-Up-Method重构到指定祖先类
+     * 
+     * @param sourcePaths 源代码路径列表
+     * @param childClassName 子类名称
+     * @param methodName 要上提的方法名
+     * @param targetAncestorClassName 目标祖先类名称（null表示直接父类）
+     * @param outputPath 输出路径（可选，null表示覆盖原文件）
+     * @return 重构结果
+     */
+    public RefactoringResult pullUpMethodToAncestor(List<String> sourcePaths, 
+                                                  String childClassName, 
+                                                  String methodName, 
+                                                  String targetAncestorClassName,
+                                                  String outputPath) {
+        return orchestrator.pullUpMethodToAncestor(sourcePaths, childClassName, methodName, targetAncestorClassName, outputPath);
+    }
+    
+    /**
      * 获取类的所有方法名称（用于CLI提示）
      */
     public List<String> getMethodNames(List<String> sourcePaths, String className) {
@@ -50,5 +68,12 @@ public class PullUpMethodRefactoring {
      */
     public List<String> getClassNames(List<String> sourcePaths) {
         return orchestrator.getClassNames(sourcePaths);
+    }
+    
+    /**
+     * 获取指定类的所有祖先类名称（用于CLI选择目标祖先类）
+     */
+    public List<String> getAncestorClassNames(List<String> sourcePaths, String className) {
+        return orchestrator.getAncestorClassNames(sourcePaths, className);
     }
 }

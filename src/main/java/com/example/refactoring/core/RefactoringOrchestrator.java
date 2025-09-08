@@ -56,7 +56,7 @@ public class RefactoringOrchestrator {
     }
     
     /**
-     * 执行Pull-Up-Method重构
+     * 执行Pull-Up-Method重构（默认上提到直接父类）
      * 
      * @param sourcePaths 源代码路径列表
      * @param childClassName 子类名称
@@ -68,8 +68,28 @@ public class RefactoringOrchestrator {
                                         String childClassName, 
                                         String methodName, 
                                         String outputPath) {
+        return pullUpMethodToAncestor(sourcePaths, childClassName, methodName, null, outputPath);
+    }
+    
+    /**
+     * 执行Pull-Up-Method重构到指定祖先类
+     * 
+     * @param sourcePaths 源代码路径列表
+     * @param childClassName 子类名称
+     * @param methodName 要上提的方法名
+     * @param targetAncestorClassName 目标祖先类名称（null表示直接父类）
+     * @param outputPath 输出路径（可选，null表示覆盖原文件）
+     * @return 重构结果
+     */
+    public RefactoringResult pullUpMethodToAncestor(List<String> sourcePaths, 
+                                                  String childClassName, 
+                                                  String methodName, 
+                                                  String targetAncestorClassName,
+                                                  String outputPath) {
         try {
-            logger.info("开始Pull-Up-Method重构: 类={}, 方法={}", childClassName, methodName);
+            String ancestorInfo = targetAncestorClassName != null ? 
+                " 到祖先类=" + targetAncestorClassName : " 到直接父类";
+            logger.info("开始Pull-Up-Method重构: 类={}, 方法={}{}", childClassName, methodName, ancestorInfo);
             
             // 1. 构建Spoon模型
             CtModel model = modelBuilder.buildModel(sourcePaths);
@@ -88,29 +108,44 @@ public class RefactoringOrchestrator {
                 return RefactoringResult.failure("在类 " + childClassName + " 中找不到方法: " + methodName);
             }
             
-            // 3. 获取父类
-            CtClass<?> parentClass = classFinder.getParentClass(childClass);
-            if (parentClass == null) {
-                return RefactoringResult.failure("类 " + childClassName + " 没有父类或父类无法解析");
+            // 3. 确定目标祖先类
+            CtClass<?> targetAncestorClass;
+            if (targetAncestorClassName == null) {
+                // 默认行为：上提到直接父类
+                targetAncestorClass = classFinder.getParentClass(childClass);
+                if (targetAncestorClass == null) {
+                    return RefactoringResult.failure("类 " + childClassName + " 没有父类或父类无法解析");
+                }
+            } else {
+                // 查找指定的祖先类
+                targetAncestorClass = classFinder.findClass(model, targetAncestorClassName);
+                if (targetAncestorClass == null) {
+                    return RefactoringResult.failure("找不到指定的目标祖先类: " + targetAncestorClassName);
+                }
+                
+                // 验证是否为祖先类关系
+                if (!classFinder.isAncestorClass(targetAncestorClass, childClass)) {
+                    return RefactoringResult.failure("类 " + targetAncestorClassName + " 不是 " + childClassName + " 的祖先类");
+                }
             }
             
-            logger.info("找到父类: {}", parentClass.getQualifiedName());
+            logger.info("找到目标祖先类: {}", targetAncestorClass.getQualifiedName());
             
             // 4. 执行重构前检查
-            RefactoringResult checkResult = performPreChecks(targetMethod, childClass, parentClass);
+            RefactoringResult checkResult = performPreChecks(targetMethod, childClass, targetAncestorClass);
             if (!checkResult.isSuccess()) {
                 return checkResult;
             }
             
             // 5. 执行方法迁移
-            RefactoringResult migrationResult = performMethodMigration(targetMethod, childClass, parentClass);
+            RefactoringResult migrationResult = performMethodMigration(targetMethod, childClass, targetAncestorClass);
             if (!migrationResult.isSuccess()) {
                 return migrationResult;
             }
             
             // 6. 输出结果
             List<String> modifiedFiles = codeGenerator.writeModifiedClassesOnly(
-                childClass, parentClass, outputPath, sourcePaths, classFinder);
+                childClass, targetAncestorClass, outputPath, sourcePaths, classFinder);
             
             logger.info("Pull-Up-Method重构完成，修改了 {} 个文件", modifiedFiles.size());
             
@@ -118,7 +153,7 @@ public class RefactoringOrchestrator {
             StringBuilder successMessage = new StringBuilder();
             successMessage.append("成功将方法 ").append(methodName)
                          .append(" 从 ").append(childClassName)
-                         .append(" 上提到 ").append(parentClass.getSimpleName());
+                         .append(" 上提到 ").append(targetAncestorClass.getSimpleName());
             
             return RefactoringResult.success(successMessage.toString(), modifiedFiles);
             
@@ -200,25 +235,28 @@ public class RefactoringOrchestrator {
             FieldPullUpHandler.FieldPullUpResult fieldResult = 
                 fieldPullUpHandler.pullUpDependentFields(clonedMethod, childClass, parentClass);
             
-            // 5. 收集父类的所有子类
-            List<CtClass<?>> allChildClasses = classFinder.collectAllChildClasses(parentClass);
+            // 5. 收集目标类的所有后代类（用于可见性调整）
+            List<CtClass<?>> allDescendantClasses = classFinder.collectAllDescendantClasses(parentClass);
             
-            // 6. 处理依赖方法的自动上提
+            // 6. 收集目标类的直接子类（用于依赖方法处理）
+            List<CtClass<?>> directChildClasses = classFinder.collectAllChildClasses(parentClass);
+            
+            // 7. 处理依赖方法的自动上提
             MethodPullUpHandler.MethodPullUpResult methodResult = 
-                methodPullUpHandler.pullUpDependentMethods(clonedMethod, childClass, parentClass, allChildClasses);
+                methodPullUpHandler.pullUpDependentMethods(clonedMethod, childClass, parentClass, directChildClasses);
             
-            // 7. 将方法添加到父类
+            // 8. 将方法添加到父类
             parentClass.addMethod(clonedMethod);
             logger.debug("方法已添加到父类: {}", parentClass.getQualifiedName());
             
-            // 8. 调整其他子类中同名方法的可见性
-            adjustVisibilityForConflictingMethodsInOtherChildClasses(clonedMethod, allChildClasses, childClass);
+            // 9. 调整所有后代类中同名方法的可见性
+            adjustVisibilityForConflictingMethodsInAllDescendants(clonedMethod, allDescendantClasses, childClass);
             
-            // 9. 补齐导入语句
+            // 10. 补齐导入语句
             importManager.ensureMissingImportsForMethodAndFieldsAndMethods(
                 parentClass, clonedMethod, fieldResult.getPulledUpFields(), methodResult.getPulledUpMethods());
             
-            // 10. 从子类中移除原方法
+            // 11. 从子类中移除原方法
             childClass.removeMethod(method);
             logger.debug("方法已从子类移除: {}", childClass.getQualifiedName());
             
@@ -234,29 +272,29 @@ public class RefactoringOrchestrator {
     }
     
     /**
-     * 调整其他子类中同名方法的可见性
+     * 调整所有后代类中同名方法的可见性
      */
-    private void adjustVisibilityForConflictingMethodsInOtherChildClasses(CtMethod<?> parentMethod, 
-                                                                        List<CtClass<?>> allChildClasses, 
-                                                                        CtClass<?> originalChildClass) {
+    private void adjustVisibilityForConflictingMethodsInAllDescendants(CtMethod<?> parentMethod, 
+                                                                      List<CtClass<?>> allDescendantClasses, 
+                                                                      CtClass<?> originalChildClass) {
         try {
             String methodName = parentMethod.getSimpleName();
             List<CtParameter<?>> parentParams = parentMethod.getParameters();
             
-            logger.debug("检查其他子类中的同名方法可见性冲突: {}", methodName);
+            logger.debug("检查所有后代类中的同名方法可见性冲突: {}", methodName);
             
-            // 收集所有冲突的子类方法
+            // 收集所有冲突的后代类方法
             List<CtMethod<?>> conflictingMethods = new ArrayList<>();
-            for (CtClass<?> childClass : allChildClasses) {
-                if (childClass.equals(originalChildClass)) {
-                    continue; // 跳过原始子类
+            for (CtClass<?> descendantClass : allDescendantClasses) {
+                if (descendantClass.equals(originalChildClass)) {
+                    continue; // 跳过原始子类（已被移除方法）
                 }
                 
                 // 查找同名方法
-                CtMethod<?> conflictingMethod = classFinder.findMatchingMethod(childClass, methodName, parentParams);
+                CtMethod<?> conflictingMethod = classFinder.findMatchingMethod(descendantClass, methodName, parentParams);
                 if (conflictingMethod != null) {
                     conflictingMethods.add(conflictingMethod);
-                    logger.debug("发现子类 {} 中的同名方法: {}", childClass.getSimpleName(), methodName);
+                    logger.debug("发现后代类 {} 中的同名方法: {}", descendantClass.getSimpleName(), methodName);
                 }
             }
             
@@ -266,10 +304,10 @@ public class RefactoringOrchestrator {
                     visibilityHandler.adjustMethodVisibility(parentMethod, conflictingMethods);
                 
                 if (result.isSuccess()) {
-                    logger.info("成功调整了 {} 个子类中同名方法的可见性", conflictingMethods.size());
+                    logger.info("成功调整了 {} 个后代类中同名方法的可见性", conflictingMethods.size());
                     result.getAdjustments().forEach(adjustment -> logger.info("  - {}", adjustment));
                 } else {
-                    logger.warn("调整子类方法可见性失败: {}", result.getMessage());
+                    logger.warn("调整后代类方法可见性失败: {}", result.getMessage());
                 }
                 
                 // 为所有冲突方法添加@Override注解
@@ -279,7 +317,7 @@ public class RefactoringOrchestrator {
             }
             
         } catch (Exception e) {
-            logger.warn("调整其他子类可见性时发生异常: {}", e.getMessage(), e);
+            logger.warn("调整后代类可见性时发生异常: {}", e.getMessage(), e);
         }
     }
     
@@ -335,6 +373,32 @@ public class RefactoringOrchestrator {
             }
         } catch (Exception e) {
             logger.error("获取类名称失败", e);
+        }
+        
+        return new ArrayList<>();
+    }
+    
+    /**
+     * 获取指定类的所有祖先类名称（用于CLI选择目标祖先类）
+     * 
+     * @param sourcePaths 源代码路径列表
+     * @param className 类名
+     * @return 祖先类名称列表，从直接父类到最顶层祖先类的顺序
+     */
+    public List<String> getAncestorClassNames(List<String> sourcePaths, String className) {
+        try {
+            CtModel model = modelBuilder.buildModel(sourcePaths);
+            if (model != null) {
+                CtClass<?> clazz = classFinder.findClass(model, className);
+                if (clazz != null) {
+                    List<CtClass<?>> ancestors = classFinder.getAllAncestorClasses(clazz);
+                    return ancestors.stream()
+                        .map(ancestor -> ancestor.getQualifiedName())
+                        .collect(java.util.stream.Collectors.toList());
+                }
+            }
+        } catch (Exception e) {
+            logger.error("获取祖先类名称失败", e);
         }
         
         return new ArrayList<>();
