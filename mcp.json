@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "pull-up-method-refactoring": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "C:/Users/wudi/Desktop/spoon/target/mcp-server.jar"
+      ],
+      "env": {
+        "JAVA_OPTS": "-Xmx512m"
+      },
+      "timeout": 60000
+    }
+  }
+}

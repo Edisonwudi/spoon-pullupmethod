@@ -11,6 +11,7 @@
 - ✅ **安全重构**: 保持源码结构与编译语义正确
 - ✅ **命令行界面**: 提供友好的 CLI 工具
 - ✅ **详细日志**: 支持详细的重构过程日志输出
+- ✅ **MCP 支持**: 提供 Model Context Protocol 服务器，支持大模型调用
 
 ## 快速开始
 
@@ -35,6 +36,10 @@ mvn test
 # 打包
 mvn package
 ```
+
+构建完成后，您将得到两个可执行JAR文件：
+- `target/pull-up-method-refactoring-1.0.0.jar` - 命令行工具
+- `target/mcp-server.jar` - MCP服务器
 
 ### 使用方法
 
@@ -98,6 +103,107 @@ java -jar target/pull-up-method-refactoring-1.0.0.jar \
 | `--list-methods` | - | ❌ | 列出指定类的所有方法 |
 | `--help` | `-h` | ❌ | 显示帮助信息 |
 | `--version` | - | ❌ | 显示版本信息 |
+
+## MCP (Model Context Protocol) 支持
+
+本项目提供了 MCP 服务器，允许大模型通过标准协议调用重构功能。
+
+### MCP 服务器功能
+
+MCP 服务器提供两个工具：
+
+1. **pull_up_method**: 执行 Pull-Up-Method 重构操作
+2. **restore_snapshot**: 从快照恢复上一次重构修改的文件
+
+### 启动 MCP 服务器
+
+#### 方法 1: 使用启动脚本
+
+```bash
+# Windows
+run-mcp-server.bat
+
+# Linux/macOS
+chmod +x run-mcp-server.sh
+./run-mcp-server.sh
+```
+
+#### 方法 2: 直接运行 JAR
+
+```bash
+java -jar target/mcp-server.jar
+```
+
+### MCP 配置
+
+在您的 MCP 客户端配置文件中添加以下配置：
+
+```json
+{
+  "mcpServers": {
+    "pull-up-method-refactoring": {
+      "command": "java",
+      "args": [
+        "-jar",
+        "path/to/target/mcp-server.jar"
+      ],
+      "env": {
+        "JAVA_OPTS": "-Xmx512m"
+      },
+      "timeout": 60000
+    }
+  }
+}
+```
+
+### MCP 工具参数
+
+#### pull_up_method 工具
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `source` | string | ✅ | 源代码路径，多个路径用逗号分隔 |
+| `className` | string | ✅ | 包含要上提方法的子类名称 |
+| `methodName` | string | ✅ | 要上提的方法名称 |
+| `targetAncestorClassName` | string | ❌ | 目标祖先类名称（可选，默认为直接父类） |
+| `outputPath` | string | ❌ | 输出目录路径（可选，默认覆盖原文件） |
+
+#### restore_snapshot 工具
+
+| 参数 | 类型 | 必需 | 描述 |
+|------|------|------|------|
+| `source` | string | ✅ | 源代码路径，用于定位快照文件 |
+
+### MCP 使用示例
+
+大模型可以通过以下方式调用 MCP 工具：
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "pull_up_method",
+    "arguments": {
+      "source": "src/main/java",
+      "className": "com.example.Dog",
+      "methodName": "eat"
+    }
+  }
+}
+```
+
+### 在 Cursor 中配置 MCP
+
+1. 打开 Cursor 编辑器
+2. 使用快捷键 `Ctrl+Shift+J` (Windows/Linux) 或 `Cmd+Shift+J` (macOS) 打开设置
+3. 在左侧导航栏中找到 "Tools & Integrations"
+4. 点击 "New MCP Servers" 按钮
+5. 将上述 MCP 配置添加到 `mcp.json` 文件中
+6. 保存配置文件
+
+配置完成后，您可以在 Cursor 中通过大模型调用重构功能。
 
 ## 示例场景
 
@@ -288,8 +394,10 @@ src/main/java/com/example/refactoring/
 │   └── MethodConflictChecker.java     # 检查方法冲突
 ├── adjuster/                      # 可见性调整
 │   └── VisibilityAdjuster.java        # 调整方法可见性
-└── cli/                          # 命令行接口
-    └── PullUpMethodCLI.java           # CLI实现
+├── cli/                          # 命令行接口
+│   └── PullUpMethodCLI.java           # CLI实现
+└── mcp/                          # MCP 服务器
+    └── MCPServer.java                 # MCP 服务器实现
 ```
 
 ## 技术栈
@@ -299,6 +407,9 @@ src/main/java/com/example/refactoring/
 - **SLF4J**: 日志框架
 - **JUnit 5**: 单元测试框架
 - **Maven**: 项目构建工具
+- **MCP (Model Context Protocol)**: 大模型上下文协议
+- **JSON-RPC**: MCP 通信协议
+- **Jackson**: JSON 处理库
 
 ## 开发指南
 
@@ -367,3 +478,5 @@ java -jar tool.jar -s src/main/java -c MyClass -m myMethod --verbose
 - ✅ 支持可见性自动调整
 - ✅ 智能import管理：自动生成import语句，使用简单类名
 - ✅ 完整的package声明和编译单元支持
+- ✅ MCP (Model Context Protocol) 服务器支持
+- ✅ 大模型集成：提供 pull_up_method 和 restore_snapshot 工具

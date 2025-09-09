@@ -6,7 +6,6 @@ C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\Refactori
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\analyzer\DependencyAnalyzer.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ModuleResolver.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\RefactoringResult.java
-C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\demo\AncestorPullUpDemo.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ClassFinder.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\PullUpMethodRefactoring.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\handler\FieldPullUpHandler.java
@@ -18,5 +17,6 @@ C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\adjuster\Visib
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\PomDependencyManager.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\RefactoringOrchestrator.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ModelBuilder.java
+C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\mcp\MCPServer.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\SnapshotManager.java
 C:\Users\wudi\Desktop\spoon\src\main\java\com\example\refactoring\core\ImportManager.java
